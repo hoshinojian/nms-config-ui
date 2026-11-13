@@ -16,6 +16,7 @@
     <button data-tab="trace">下发留痕</button>
   </nav>
   <span id="conn" class="conn">…</span>
+  <button id="gear" class="btn slim" title="连接设置">⚙ 连接</button>
 </header>
 
 <main>
@@ -103,6 +104,26 @@
     </table>
   </section>
 </main>
+
+<!-- 连接设置（SSH 隧道） -->
+<div id="settings" class="modal hidden">
+  <div class="modal-box narrow">
+    <div class="modal-head">
+      <b>连接 NMS 宿主机（SSH 隧道）</b>
+      <button class="btn slim" data-close>关闭</button>
+    </div>
+    <label>NMS 宿主机（ip 或 ip:port，SSH 端口缺省 22） <input type="text" id="set-host" placeholder="203.0.113.9"></label>
+    <label>SSH 用户 <input type="text" id="set-user" placeholder="root"></label>
+    <label>SSH 密码（只存工具进程内存，不落浏览器/日志） <input type="password" id="set-pass" autocomplete="off"></label>
+    <label>NMS API（宿主机视角的目标地址） <input type="text" id="set-target" placeholder="127.0.0.1:8080"></label>
+    <div class="bar">
+      <button id="set-connect" class="btn primary">连接</button>
+      <button id="set-disconnect" class="btn">断开</button>
+      <span id="set-note" class="hint"></span>
+    </div>
+    <p class="hint">未连接时走启动参数 -upstream 的静态上游（默认本机 8080）。SSH 密码不会保存；host/用户/目标存浏览器本地，下次只需重输密码。</p>
+  </div>
+</div>
 
 <!-- 内容读回 / 在线编辑 -->
 <div id="editor" class="modal hidden">

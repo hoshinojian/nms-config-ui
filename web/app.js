@@ -67,18 +67,72 @@ $("#tabs").addEventListener("click", (e) => {
   if (b.dataset.tab === "trace") refreshTraceNodes();
 });
 
-// ---------- 连接状态 ----------
-(async () => {
+// ---------- 连接状态 / SSH 隧道 ----------
+async function refreshConn() {
   const c = $("#conn");
+  let tun;
+  try {
+    const r = await fetch("/ctl/status");
+    tun = await r.json();
+  } catch { /* 工具自身异常，按未连处理 */ }
   try {
     const h = await api("/health");
-    c.textContent = `NMS ok · nodes=${h.collector?.nodes_total ?? "?"}`;
+    const via = tun?.connected ? ` · 隧道 ${tun.host}` : " · 静态上游";
+    c.textContent = `NMS ok · nodes=${h.collector?.nodes_total ?? "?"}${via}`;
     c.className = "conn ok";
   } catch (e) {
-    c.textContent = "NMS 不可达（检查 -upstream / SSH -L 转发）";
+    c.textContent = tun?.connected
+      ? `隧道已建（${tun.host}）但 NMS 不通：${e.message}`
+      : "NMS 不可达（点右上 ⚙ 连接，或检查 -upstream）";
     c.className = "conn bad";
   }
-})();
+}
+
+$("#gear").onclick = () => {
+  $("#set-host").value = localStorage.getItem("ncu.host") || "";
+  $("#set-user").value = localStorage.getItem("ncu.user") || "root";
+  $("#set-target").value = localStorage.getItem("ncu.target") || "127.0.0.1:8080";
+  $("#set-pass").value = "";
+  $("#set-note").textContent = "";
+  $("#settings").classList.remove("hidden");
+};
+$("#settings").addEventListener("click", (e) => {
+  if (e.target === $("#settings") || e.target.closest("[data-close]")) $("#settings").classList.add("hidden");
+});
+$("#set-connect").onclick = async () => {
+  const host = $("#set-host").value.trim();
+  const user = $("#set-user").value.trim();
+  const pass = $("#set-pass").value;
+  const target = $("#set-target").value.trim();
+  if (!host || !user || !pass) return $("#set-note").textContent = "宿主机 / 用户 / 密码都要填";
+  $("#set-note").textContent = "连接中…";
+  $("#set-connect").disabled = true;
+  try {
+    const r = await fetch("/ctl/connect", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host, user, password: pass, target }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || r.statusText);
+    localStorage.setItem("ncu.host", host);
+    localStorage.setItem("ncu.user", user);
+    localStorage.setItem("ncu.target", target);
+    $("#set-note").textContent = "✓ 已连接 " + d.host;
+    setTimeout(() => $("#settings").classList.add("hidden"), 600);
+    await refreshConn(); loadNodes().then(loadFiles);
+  } catch (e) {
+    $("#set-note").textContent = "失败：" + e.message;
+  } finally {
+    $("#set-connect").disabled = false;
+  }
+};
+$("#set-disconnect").onclick = async () => {
+  await fetch("/ctl/disconnect", { method: "POST" });
+  $("#set-note").textContent = "已断开（回落静态上游）";
+  refreshConn();
+};
+
+refreshConn();
 
 // ---------- 节点（Tab1 + 向导②共用渲染） ----------
 function pushable(n) { return n.device_type === "vps" && n.role === "managed"; }
